@@ -1,0 +1,124 @@
+name: Build Android Application
+
+on:
+  push:
+    branches: [ "main", "kryesor" ]
+  pull_request:
+    branches: [ "main", "kryesor" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Basic Android Project Structure
+        run: |
+          mkdir -p app/src/main/java/com/example/emilianoplatform
+          mkdir -p app/src/main/res/values
+          
+          if [ -f MainActivity.java ]; then
+            cp MainActivity.java app/src/main/java/com/example/emilianoplatform/
+          fi
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.example.emilianoplatform">
+              <application
+                  android:allowBackup="true"
+                  android:label="Emiliano Platform"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Emiliano Platform</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > settings.gradle
+          include ':app'
+          rootProject.name = "EmilianoPlatform"
+          EOF
+
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.1'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.example.emilianoplatform'
+              compileSdk 33
+
+              defaultConfig {
+                  applicationId "com.example.emilianoplatform"
+                  minSdk 21
+                  targetSdk 33
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+      - name: Build APK with Gradle
+        run: |
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EmilianoPlatform-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
